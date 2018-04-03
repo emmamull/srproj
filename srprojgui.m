@@ -20,7 +20,7 @@ function varargout = srprojgui(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 % Edit the above text to modify the response to help srprojgui
-% Last Modified by GUIDE v2.5 03-Apr-2018 11:07:13
+% Last Modified by GUIDE v2.5 03-Apr-2018 14:11:56
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -201,6 +201,24 @@ function reset_fasfib_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 end
 
+% --- Executes on button press in select_area.
+function select_area_Callback(hObject, eventdata, handles)
+%selects the area for tracking 
+%hObject    handle to select_area (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+initwin=getrect(handles.axes2); %user selects window they want
+rectangle('Position',initwin,'EdgeColor','g','LineWidth',2); %plot the selected rectangle
+initwin=round(initwin);%round to nearest whole numbers
+st.w=initwin(3); %width of selected region
+st.h=initwin(4); %height of selected region
+st.x1=initwin(1); % left side of selected region
+st.y1=initwin(2); % uppermost side of selected region
+st.x2=st.x1+st.w-1; % fartherst right side of selected region
+st.y2 = st.y1+st.h-1; %bottom side of selected region
+handles.st = st;
+guidata(hObject,handles);
+end
 
 % --- Executes on button press in track.
 function track_Callback(hObject, eventdata, handles)
@@ -248,3 +266,5 @@ function length_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of length
 end
+
+
