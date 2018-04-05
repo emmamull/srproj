@@ -44,7 +44,7 @@ end
 
 
 % --- Executes just before srprojgui is made visible.
-function srprojgui_OpeningFcn(hObject, eventdata, handles, varargin)
+function srprojgui_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -62,7 +62,7 @@ guidata(hObject, handles);
 
 end
 % --- Outputs from this function are returned to the command line.
-function varargout = srprojgui_OutputFcn(hObject, eventdata, handles) 
+function varargout = srprojgui_OutputFcn(hObject, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -71,7 +71,7 @@ function varargout = srprojgui_OutputFcn(hObject, eventdata, handles)
 varargout{1} = handles.output;
 end
 
-function edit2_Callback(hObject, eventdata, handles)
+function edit2_Callback(hObject, ~, handles)
 % hObject    handle to edit2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -80,7 +80,7 @@ function edit2_Callback(hObject, eventdata, handles)
 end
 
 % --- Executes during object creation, after setting all properties.
-function edit2_CreateFcn(hObject, eventdata, handles)
+function edit2_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -113,6 +113,9 @@ mat=zeros(r,c,len); %preallocate
 for i=1:len
     mat(:,:,i)=eval(['data.' names{i}]); %enter frame information
 end
+handles.fiber=[]; %preallocates handles.fiber.x for later
+handles.fiber.x=[];
+
 %convert from RF to amplitude
 htf=zeros(r,c,len); %preallocate
 for i=1:len
@@ -133,7 +136,7 @@ end
 
 %slider1 lets user select frame
 % --- Executes during object creation, after setting all properties.
-function slider1_CreateFcn(hObject, eventdata, handles)
+function slider1_CreateFcn(hObject, ~, handles)
 % hObject    handle to slider1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -145,7 +148,7 @@ set(hObject,'Max',handles.len-1);
 end
 
 % --- Executes on slider movement.
-function slider1_Callback(hObject, eventdata, handles)
+function slider1_Callback(hObject, ~, handles)
 % hObject    handle to slider1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -157,7 +160,7 @@ guidata(hObject,handles);
 end
 
 % --- Executes on button press in play.
-function play_Callback(hObject, eventdata, handles)
+function play_Callback(hObject, ~, handles)
 %plays the frames from current frame
 % hObject    handle to play (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -169,28 +172,47 @@ end
 end
 
 % --- Executes on button press in fascia.
-function fascia_Callback(hObject, eventdata, handles)
+function fascia_Callback(hObject, ~, handles)
 % select the fascia
 % hObject    handle to fascia (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 [x_getfascia, y_getfascia]=ginput(2); %save x and y values of fascia selected
-P=polyfit(x_getfascia,y_getfascia,1);%to extend graph of 
+
+%extend graph of fascia
+P=polyfit(x_getfascia,y_getfascia,1);
 x_fascia=1:handles.c;
 y_fascia=P(1)*x_fascia+P(2);
+
+%save fascia and line locations
+handles.fascia=[];
+handles.fascia.x=x_fascia; 
+handles.fascia.y=y_fascia;
+guidata(hObject,handles);
+
+%plot fascia line in red
 plot(x_fascia,y_fascia,'r','LineWidth',2)
 end
 
 % --- Executes on button press in fiber.
-function fiber_Callback(hObject, eventdata, handles)
+function fiber_Callback(hObject, ~, handles)
 % select fiber
 % hObject    handle to fiber (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 [x_getfib, y_getfib]=ginput(2); %save x and y values of fiber coordinates selected
-P2=polyfit(x_getfib,y_getfib,1); %to extrapolate points between
+
+%extend line to graph fiber
+P2=polyfit(x_getfib,y_getfib,1);
 x_fiber=1:handles.c;
-y_fiber=P2(1)*x_fiber+P2(2); %calculate y points on graph
+y_fiber=P2(1)*x_fiber+P2(2); 
+
+%save the fiber data
+flen=length(handles.fiber.x);
+handles.fiber.x{flen+1} = x_fiber;
+handles.fiber.y{flen+1} = y_fiber;
+
+%plot
 plot(x_fiber,y_fiber,'b', 'LineWidth',2)
 end
 
@@ -199,6 +221,9 @@ function reset_fasfib_Callback(hObject, eventdata, handles)
 % hObject    handle to reset_fasfib (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+handles.fascia=[];
+handles.fiber=[];
+guidata(hObject,handles);
 end
 
 % --- Executes on button press in select_area.
