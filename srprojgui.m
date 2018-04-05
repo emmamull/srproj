@@ -20,7 +20,7 @@ function varargout = srprojgui(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 % Edit the above text to modify the response to help srprojgui
-% Last Modified by GUIDE v2.5 03-Apr-2018 14:11:56
+% Last Modified by GUIDE v2.5 05-Apr-2018 17:26:50
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -113,6 +113,9 @@ mat=zeros(r,c,len); %preallocate
 for i=1:len
     mat(:,:,i)=eval(['data.' names{i}]); %enter frame information
 end
+
+%some important preallocation
+handles.f=1;
 handles.fiber=[]; %preallocates handles.fiber.x for later
 handles.fiber.x=[];
 
@@ -167,7 +170,8 @@ function play_Callback(hObject, ~, handles)
 % handles    structure with handles and user data (see GUIDATA)
 for i=handles.f:handles.len
     image(handles.amp(:,:,i))
-    pause(0.05) 
+    pause(0.05)
+    set(slider1,hObject,'Value')=i;
 end
 end
 
@@ -250,6 +254,36 @@ function track_Callback(hObject, eventdata, handles)
 % hObject    handle to track (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+%define kernel
+kn.h=handles.st.h; %ROI height
+kn.w=handles.st.w; %ROI width
+kn.sx=10; %set the size of windows of kernels
+kn.sy=20; %set the size of windows of kernels
+kn.rx=kn.h; %change to adjust computing speed
+kn.cy=kn.w; %change to adjust computing speed
+
+% default minimum elements in the lateral/axial direction
+hx = 7; 
+hy = 1;
+%potentially change hx, hy
+if kn.h/kn.rx/2 > hx
+    hx = floor(kn.h/rx/2);
+end  
+if kn.w/kn.cy/2 > hy
+    hy = floor(kn.w/cy/2);
+end    
+%set finalized hx and hy
+kn.hx = hx;
+kn.hy = hy;
+
+num=1; %preallocate
+
+%perform tracking on frames
+for i=handles.f:handles.len-1
+    data{num}=NCorrEst(handles.amp(:,:,i),handles.amp(:,:,i+1),handles.st,kn);
+    num=num+1;
+end
 end
 
 % --- Executes on button press in track_review.
@@ -291,5 +325,3 @@ function length_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of length
 end
-
-
