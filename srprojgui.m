@@ -171,7 +171,7 @@ function play_Callback(hObject, ~, handles)
 for i=handles.f:handles.len
     image(handles.amp(:,:,i))
     pause(0.05)
-    set(slider1,hObject,'Value')=i;
+    %set(slider1,hObject,'Value')=i;
 end
 end
 
@@ -259,9 +259,9 @@ function track_Callback(hObject, eventdata, handles)
 kn.h=handles.st.h; %ROI height
 kn.w=handles.st.w; %ROI width
 kn.sx=10; %set the size of windows of kernels
-kn.sy=20; %set the size of windows of kernels
-kn.rx=kn.h; %change to adjust computing speed
-kn.cy=kn.w; %change to adjust computing speed
+kn.sy=10; %set the size of windows of kernels
+kn.rx=round(kn.h/2); %change to adjust computing speed
+kn.cy=round(kn.w/2); %change to adjust computing speed
 
 % default minimum elements in the lateral/axial direction
 hx = 7; 
