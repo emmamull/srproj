@@ -68,7 +68,7 @@ function varargout = srprojgui_OutputFcn(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % Get default command line output from handles structure
-varargout{1} = handles.output;
+varargout{1}=handles.track_data;
 end
 
 function edit2_Callback(hObject, ~, handles)
@@ -227,6 +227,8 @@ function reset_fasfib_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 handles.fascia=[];
 handles.fiber=[];
+handles.fiber.x=[];
+image(handles.amp(:,:,handles.f));
 guidata(hObject,handles);
 end
 
@@ -247,6 +249,8 @@ st.x2=st.x1+st.w-1; % fartherst right side of selected region
 st.y2 = st.y1+st.h-1; %bottom side of selected region
 handles.st = st;
 guidata(hObject,handles);
+image(handles.amp(st.y1:st.y2,st.x1:st.x2,handles.f),'Parent',handles.axes1)
+set(handles.axes1)
 end
 
 % --- Executes on button press in track.
@@ -279,11 +283,33 @@ kn.hy = hy;
 
 num=1; %preallocate
 
-%perform tracking on frames
-for i=handles.f:handles.len-1
-    data{num}=NCorrEst(handles.amp(:,:,i),handles.amp(:,:,i+1),handles.st,kn);
-    num=num+1;
+%perform tracking on frame 1
+if handles.f+20<handles.len-1
+    last_frame=handles.f+20;
+else
+    last_frame=handles.len-1;
 end
+track_data=[];
+track_data=NCorrEst(handles.amp(:,:,handles.f),handles.amp(:,:,handles.f+1),handles.st,kn);
+axes(handles.axes1);
+qdata=quiver(track_data.v,track_data.u);
+% for i=handles.f:last_frame
+%     track_data=NCorrEst(handles.amp(:,:,i),handles.amp(:,:,i+1),handles.st,kn);
+%     track{i}=track_data;
+%     num=num+1;
+% end
+% handles.track=track;
+% qdata=[];
+% for i=1:last_frame
+%     %image(handles.amp(handles.st.y1:handles.st.y2,handles.st.x1:handles.st.x2,i),'Parent',handles.axes1);
+%     v=track{i}.v;
+%     u=track{i}.u;
+%     axes(handles.axes1);
+%     qdata{i}=quiver(v,u);
+%     pause(1)
+% end
+handles.track_data=track_data;
+guidata(hObject,handles);
 end
 
 % --- Executes on button press in track_review.
@@ -291,6 +317,8 @@ function track_review_Callback(hObject, eventdata, handles)
 % hObject    handle to track_review (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+track=handles.track;
+
 end
 
 % --- Executes on button press in diameter.
