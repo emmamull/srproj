@@ -58,17 +58,8 @@ handles.output = hObject;
 guidata(hObject, handles);
 
 % UIWAIT makes srprojgui wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
+%uiwait(handles.figure1);
 
-end
-% --- Outputs from this function are returned to the command line.
-function varargout = srprojgui_OutputFcn(hObject, ~, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% Get default command line output from handles structure
-varargout{1}=handles.track_data;
 end
 
 function edit2_Callback(hObject, ~, handles)
@@ -113,7 +104,7 @@ mat=zeros(r,c,len); %preallocate
 for i=1:len
     mat(:,:,i)=eval(['data.' names{i}]); %enter frame information
 end
-
+handles.mat=mat;
 %some important preallocation
 handles.f=1;
 handles.fiber=[]; %preallocates handles.fiber.x for later
@@ -238,13 +229,11 @@ function select_area_Callback(hObject, eventdata, handles)
 %hObject    handle to select_area (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-initwin=getrect(handles.axes2); %user selects window they want
-rectangle('Position',initwin,'EdgeColor','g','LineWidth',2); %plot the selected rectangle
-initwin=round(initwin);%round to nearest whole numbers
-st=state(initwin);
-handles.st = st;
+initstate=getrect(handles.axes2); %user selects window they want
+rectangle('Position',initstate,'EdgeColor','g','LineWidth',2); %plot the selected rectangle
+handles.initstate = round(initstate);
 guidata(hObject,handles);
-image(handles.amp(st.y1:st.y2,st.x1:st.x2,handles.f),'Parent',handles.axes1)
+%image(handles.amp(st.y1:st.y2,st.x1:st.x2,handles.f),'Parent',handles.axes1)
 end
 
 % --- Executes on button press in track.
@@ -255,21 +244,29 @@ function track_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 %Create kenel and import st from select area
-st=handles.st; %import st variable
+initstate=handles.initstate; %import initial state
+x1=initstate(1);
+y1=initstate(2);
+w=initstate(3);
+h=initstate(4);
+st = state(initstate);
 %search range
 sX=10;
 sY=20;
 %how much of the ROI to search
-rX=st.h/2;
-cY=st.w/2;
+rX=round(h/2);
+cY=round(w/2);
 method = [sX, sY, rX, cY];
 kn = kernel(method,st);
 
 %select frame range to track
 initframe=handles.f; %initial frame for tracking
+%select number of frames to track
+numframes=5;
+
 %pick the end frame
-if handles.f+20<handles.len-1
-    endframe=handles.f+20;
+if handles.f+numframes<handles.len-1
+    endframe=handles.f+numframes;
 else
     endframe=handles.len-1;
 end
@@ -280,30 +277,52 @@ matrix_meanv=0;
 num=1;
 trackData=[];
 
-%load amp data
-amp=handles.amp;
+%load amplitude data
+mat=handles.mat;
 
 %tracking cycles through frames
-for i=initframe:endframe-1
-    %generate template and target
-    templ=amp(:,:,i);
-    tar=amp(:,:,i+1);
-    if i== initframe
-        data=NCorrEst(templ,tar,st,kn);
+for i= initframe:(endframe-1)
+    disp(i)
+    figure;
+    if i==initframe
+       %generates the Target and template
+        st = state(initstate);
+        templ= mat(:,:,i);
+        tar= mat(:,:,i+1);
+        data = NCorrEst(templ,tar,st,kn);
         %initalizes the mean u and v vectors for later
         %statistical use
         Cart_meanu_vec=zeros(length(initframe:endframe)-1,1);
         Cart_meanv_vec=zeros(length(initframe:endframe)-1,1);
+        %{
+        h=figure;
+        i1=image(amp(:,:,initframe));
+        colormap(gray)
+        hold on
+        fs=num2str(initframe);
+        title(['Frame ' fs],'FontSize',15)
+        ylabel('Time Sample','FontSize',15)
+        rectangle('Position',initstate,'EdgeColor','y')
+        %}
+        
     else
-        %alters ROI depending on movement in the last frame
+        %alters the ROI depending on how the movement from the last frame
         x1=round(x1 + Cart_meanu);
         y1=round(y1 + Cart_meanv);
-        st_new=state([x1 y1 st.w st.h]);
-        kn_new=kernel(method,st_new);%kernel changes to reflect st change
-        data=NCorrEst(templ,tar,st_new,kn_new);
+        %size of region of interest remains the same
+        initstate = [x1, y1, w, h];
+        st = state(initstate);
+        %method stays same
+        kn = kernel(method,st);
+        %generates the Target and template
+        templ= mat(:,:,i);
+        tar= mat(:,:,i+1);
+        data = NCorrEst(templ,tar,st,kn);
+        %rectangle('Position',initstate,'EdgeColor','y')
     end
     % Create the quiver
-    qdata=quiver(data.v, data.u,'Parent',handles.axes1);
+    qdata=quiver(data.v, data.u);
+    %disp(["sX " sX "sY " sY] )
     title(['quiver of Temp: ' num2str(i) ' to Tar: ' num2str(i+1)])
     %Generates the mean u and v vectors
     fakeu=zeros(size(data.v));
@@ -328,15 +347,14 @@ for i=initframe:endframe-1
     
     Cart_meanu_vec(i)=Cart_meanu;
     Cart_meanv_vec(i)=Cart_meanv;
-    
     %plotting the mean vector of the entire ROI
-    qdata2=quiver(fakev,fakeu,'Parent',handles.axes1);
+    hold on
+    qdata2=quiver(fakev,fakeu);
     qdata2.LineWidth=3;
     qdata2.AutoScaleFactor=9;
     qdata2.MaxHeadSize=7;
-    set(gca,'Ydir','reverse');
-    pause(1)
-    
+    set(handles.axes1,'Ydir','reverse') %need to reverse the graph
+    hold off
     %save the tracking data
     trackData{num}=data;
     num=num+1;
@@ -386,6 +404,17 @@ function length_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of length
 end
+
+% --- Outputs from this function are returned to the command line.
+function varargout = srprojgui_OutputFcn(hObject, ~, handles) 
+% varargout  cell array for returning output args (see VARARGOUT);
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% Get default command line output from handles structure
+varargout{1}= handles;
+end
+
 
 function st = state(initstate)
     % Unfortunately, MATLAB use column-first method to arrange 2D Matrix, or
