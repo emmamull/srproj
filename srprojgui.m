@@ -241,74 +241,107 @@ function select_area_Callback(hObject, eventdata, handles)
 initwin=getrect(handles.axes2); %user selects window they want
 rectangle('Position',initwin,'EdgeColor','g','LineWidth',2); %plot the selected rectangle
 initwin=round(initwin);%round to nearest whole numbers
-st.w=initwin(3); %width of selected region
-st.h=initwin(4); %height of selected region
-st.x1=initwin(1); % left side of selected region
-st.y1=initwin(2); % uppermost side of selected region
-st.x2=st.x1+st.w-1; % fartherst right side of selected region
-st.y2 = st.y1+st.h-1; %bottom side of selected region
+st=state(initwin);
 handles.st = st;
 guidata(hObject,handles);
 image(handles.amp(st.y1:st.y2,st.x1:st.x2,handles.f),'Parent',handles.axes1)
-set(handles.axes1)
 end
 
 % --- Executes on button press in track.
 function track_Callback(hObject, eventdata, handles)
+% tracks the fibers through 20 frames 
 % hObject    handle to track (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-%define kernel
-kn.h=handles.st.h; %ROI height
-kn.w=handles.st.w; %ROI width
-kn.sx=10; %set the size of windows of kernels
-kn.sy=10; %set the size of windows of kernels
-kn.rx=round(kn.h/2); %change to adjust computing speed
-kn.cy=round(kn.w/2); %change to adjust computing speed
+%Create kenel and import st from select area
+st=handles.st; %import st variable
+%search range
+sX=10;
+sY=20;
+%how much of the ROI to search
+rX=st.h/2;
+cY=st.w/2;
+method = [sX, sY, rX, cY];
+kn = kernel(method,st);
 
-% default minimum elements in the lateral/axial direction
-hx = 7; 
-hy = 1;
-%potentially change hx, hy
-if kn.h/kn.rx/2 > hx
-    hx = floor(kn.h/rx/2);
-end  
-if kn.w/kn.cy/2 > hy
-    hy = floor(kn.w/cy/2);
-end    
-%set finalized hx and hy
-kn.hx = hx;
-kn.hy = hy;
-
-num=1; %preallocate
-
-%perform tracking on frame 1
+%select frame range to track
+initframe=handles.f; %initial frame for tracking
+%pick the end frame
 if handles.f+20<handles.len-1
-    last_frame=handles.f+20;
+    endframe=handles.f+20;
 else
-    last_frame=handles.len-1;
+    endframe=handles.len-1;
 end
-track_data=[];
-track_data=NCorrEst(handles.amp(:,:,handles.f),handles.amp(:,:,handles.f+1),handles.st,kn);
-axes(handles.axes1);
-qdata=quiver(track_data.v,track_data.u);
-% for i=handles.f:last_frame
-%     track_data=NCorrEst(handles.amp(:,:,i),handles.amp(:,:,i+1),handles.st,kn);
-%     track{i}=track_data;
-%     num=num+1;
-% end
-% handles.track=track;
-% qdata=[];
-% for i=1:last_frame
-%     %image(handles.amp(handles.st.y1:handles.st.y2,handles.st.x1:handles.st.x2,i),'Parent',handles.axes1);
-%     v=track{i}.v;
-%     u=track{i}.u;
-%     axes(handles.axes1);
-%     qdata{i}=quiver(v,u);
-%     pause(1)
-% end
-handles.track_data=track_data;
+
+%preallocate
+matrix_meanu=0;
+matrix_meanv=0;
+num=1;
+trackData=[];
+
+%load amp data
+amp=handles.amp;
+
+%tracking cycles through frames
+for i=initframe:endframe-1
+    %generate template and target
+    templ=amp(:,:,i);
+    tar=amp(:,:,i+1);
+    if i== initframe
+        data=NCorrEst(templ,tar,st,kn);
+        %initalizes the mean u and v vectors for later
+        %statistical use
+        Cart_meanu_vec=zeros(length(initframe:endframe)-1,1);
+        Cart_meanv_vec=zeros(length(initframe:endframe)-1,1);
+    else
+        %alters ROI depending on movement in the last frame
+        x1=round(x1 + Cart_meanu);
+        y1=round(y1 + Cart_meanv);
+        st_new=state([x1 y1 st.w st.h]);
+        kn_new=kernel(method,st_new);%kernel changes to reflect st change
+        data=NCorrEst(templ,tar,st_new,kn_new);
+    end
+    % Create the quiver
+    qdata=quiver(data.v, data.u,'Parent',handles.axes1);
+    title(['quiver of Temp: ' num2str(i) ' to Tar: ' num2str(i+1)])
+    %Generates the mean u and v vectors
+    fakeu=zeros(size(data.v));
+    fakev=fakeu;
+    midx=round(rX/2);
+    midy=round(cY/2);
+    
+    nonz_u= data.u((data.u ~= 0));
+    matrix_meanu=mean(nonz_u);
+    disp(["meanu:" matrix_meanu])
+    
+    nonz_v= data.v((data.v ~= 0));
+    matrix_meanv=mean(nonz_v);
+    disp(["meanv:" matrix_meanv])
+    
+    %Middle of figure is first mean vec and
+    %decending from there is +1
+    fakeu(midx+i,midy)=matrix_meanu;
+    fakev(midx+i,midy)=matrix_meanv;
+    Cart_meanu=matrix_meanv;
+    Cart_meanv=matrix_meanu;
+    
+    Cart_meanu_vec(i)=Cart_meanu;
+    Cart_meanv_vec(i)=Cart_meanv;
+    
+    %plotting the mean vector of the entire ROI
+    qdata2=quiver(fakev,fakeu,'Parent',handles.axes1);
+    qdata2.LineWidth=3;
+    qdata2.AutoScaleFactor=9;
+    qdata2.MaxHeadSize=7;
+    set(gca,'Ydir','reverse');
+    pause(1)
+    
+    %save the tracking data
+    trackData{num}=data;
+    num=num+1;
+end
+handles.trackData=trackData;
 guidata(hObject,handles);
 end
 
@@ -352,4 +385,60 @@ function length_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of length
+end
+
+function st = state(initstate)
+    % Unfortunately, MATLAB use column-first method to arrange 2D Matrix, or
+    % a 2D image. So we need to use a function to make things compatible.
+    
+    % check if numbers need to be integer
+    if any(initstate - round(initstate))
+        disp('warning: initstate is not an integer vector');
+    end
+
+    
+    initstate = round(initstate);
+    y = initstate(1);% x axis at the Top left corner
+    x = initstate(2);
+    st.w = initstate(3);% width of the rectangle
+    st.h = initstate(4);% height of the rectangle
+
+    st.x1 = x;
+    st.x2 = x+st.h-1;
+    st.y1 = y;
+    st.y2 = y+st.w-1;
+end
+
+function kn = kernel(set,state)
+    % search radius in X/Y direction
+    sx = set(1);
+    sy = set(2);
+    rx = set(3);
+    cy = set(4);
+    
+    kn.sx = sx;
+    kn.sy = sy;
+    % # locs (rows,cols) that need to be tracked
+    kn.rx = rx;
+    kn.cy = cy;
+    
+    % region of interest width and height
+    kn.w = state.w;
+    kn.h = state.h;
+    
+    % default minimum elements in the lateral/axial direction
+    hx = 7; 
+    hy = 1;
+    
+    if kn.h/rx/2 > hx
+        hx = floor(kn.h/rx/2);
+    end
+    
+    if kn.w/cy/2 > hy
+        hy = floor(kn.w/cy/2);
+    end
+        
+    kn.hx = hx;
+    kn.hy = hy;
+
 end
